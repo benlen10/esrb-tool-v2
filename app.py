@@ -14,8 +14,7 @@ def init_db():
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS ratings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            game_id INTEGER UNIQUE,
+            game_id INTEGER PRIMARY KEY,
             game_title TEXT NOT NULL,
             platform TEXT,
             rating TEXT,
@@ -35,7 +34,6 @@ def init_db():
         )
     ''')
 
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_game_id ON ratings(game_id)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_rating ON ratings(rating)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_title ON ratings(game_title)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_platform ON ratings(platform)')
@@ -61,13 +59,13 @@ def get_ratings():
     search = request.args.get('search', '')
     platform = request.args.get('platform', '')
     rating = request.args.get('rating', '')
-    sort_col = request.args.get('sort', 'id')
+    sort_col = request.args.get('sort', 'game_id')
     sort_dir = request.args.get('dir', 'desc')
 
     # Whitelist sortable columns
-    allowed_sorts = ['id', 'game_title', 'platform', 'rating', 'release_date']
+    allowed_sorts = ['game_id', 'game_title', 'platform', 'rating']
     if sort_col not in allowed_sorts:
-        sort_col = 'id'
+        sort_col = 'game_id'
 
     # Build query
     query = 'SELECT * FROM ratings WHERE 1=1'

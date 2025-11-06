@@ -100,6 +100,15 @@
             background: #f9f9f9;
         }
 
+        a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
         .rating-badge {
             display: inline-block;
             padding: 4px 8px;
@@ -423,7 +432,7 @@
             updatePagination();
         }
 
-        let currentSort = 'id';
+        let currentSort = 'game_id';
         let currentSortDir = 'desc';
 
         function sortBy(column) {
@@ -456,6 +465,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th onclick="sortBy('game_id')" style="cursor: pointer">ID${sortIcon('game_id')}</th>
                             <th onclick="sortBy('game_title')" style="cursor: pointer">Title${sortIcon('game_title')}</th>
                             <th onclick="sortBy('platform')" style="cursor: pointer">Platform${sortIcon('platform')}</th>
                             <th onclick="sortBy('rating')" style="cursor: pointer">Rating${sortIcon('rating')}</th>
@@ -466,7 +476,8 @@
                     <tbody>
                         ${ratings.map((r, idx) => `
                             <tr>
-                                <td><strong>${escapeHtml(r.game_title)}</strong></td>
+                                <td>${r.game_id}</td>
+                                <td><strong><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.game_title)}</a></strong></td>
                                 <td><span class="platform">${escapeHtml(r.platform || '')}</span></td>
                                 <td><span class="rating-badge rating-${r.rating.replace(/[^a-zA-Z0-9]/g, '')}">${escapeHtml(r.rating)}</span></td>
                                 <td>${escapeHtml(r.descriptors || '')}</td>
