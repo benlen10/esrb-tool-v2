@@ -76,8 +76,10 @@ def parse_game_item(item):
                 # Content descriptors (column 2)
                 if len(cells) > 1:
                     desc_cell = cells[1]
-                    # Get text and clean up line breaks
-                    descriptors = desc_cell.get_text(separator=', ', strip=True)
+                    # Get text and clean up - HTML has commas already, just replace line breaks
+                    descriptors = desc_cell.get_text(separator=' ', strip=True)
+                    # Clean up any double commas or spaces
+                    descriptors = descriptors.replace(',,', ',').replace('  ', ' ').strip()
 
                 # Rating Summary/Synopsis (column 4)
                 if len(cells) > 3:

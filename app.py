@@ -117,10 +117,10 @@ def export_csv():
 
     # Get query parameters
     search = request.args.get('search', '')
-    platform = request.args.get('platform', '')
-    rating = request.args.get('rating', '')
+    platforms = request.args.get('platforms', '')  # Comma-separated list
+    ratings = request.args.get('ratings', '')      # Comma-separated list
 
-    # Build query
+    # Get all games, we'll filter in Python for multi-value filters
     query = 'SELECT * FROM ratings WHERE 1=1'
     params = []
 
@@ -128,27 +128,40 @@ def export_csv():
         query += ' AND game_title LIKE ?'
         params.append(f'%{search}%')
 
-    if platform:
-        query += ' AND platform LIKE ?'
-        params.append(f'%{platform}%')
-
-    if rating:
-        query += ' AND rating = ?'
-        params.append(rating)
-
-    query += ' ORDER BY game_title'
+    query += ' ORDER BY game_id DESC'
 
     cursor.execute(query, params)
     rows = cursor.fetchall()
+
+    # Convert to list of dicts for easier filtering
+    all_games = [dict(row) for row in rows]
+
+    # Filter by platforms (client-side multi-select)
+    if platforms:
+        selected_platforms = [p.strip() for p in platforms.split(',')]
+        filtered_games = []
+        for game in all_games:
+            game_platforms = game['platform'].split(',') if game['platform'] else []
+            game_platforms = [p.strip() for p in game_platforms]
+            if any(p in game_platforms for p in selected_platforms):
+                filtered_games.append(game)
+        all_games = filtered_games
+
+    # Filter by ratings (client-side multi-select)
+    if ratings:
+        selected_ratings = [r.strip() for r in ratings.split(',')]
+        all_games = [game for game in all_games if game['rating'] in selected_ratings]
+
+    rows = all_games
 
     # Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['game_id', 'game_title', 'platform', 'rating', 'descriptors', 'url', 'summary'])
 
-    for row in rows:
-        writer.writerow([row['game_id'], row['game_title'], row['platform'], row['rating'],
-                        row['descriptors'], row['url'], row['summary']])
+    for game in rows:
+        writer.writerow([game['game_id'], game['game_title'], game['platform'], game['rating'],
+                        game['descriptors'], game['url'], game['summary']])
 
     conn.close()
 

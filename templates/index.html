@@ -109,20 +109,11 @@
             text-decoration: underline;
         }
 
-        .rating-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
+        .rating-icon {
+            height: 40px;
+            width: auto;
+            vertical-align: middle;
         }
-
-        .rating-E { background: #4CAF50; color: white; }
-        .rating-E10 { background: #8BC34A; color: white; }
-        .rating-T { background: #FFC107; color: #333; }
-        .rating-M { background: #FF9800; color: white; }
-        .rating-AO { background: #f44336; color: white; }
-        .rating-RP { background: #9E9E9E; color: white; }
 
         .pagination {
             display: flex;
@@ -409,6 +400,7 @@
 
             // Filter on client side for multi-select platforms and ratings
             let filteredData = data.data;
+            let totalFiltered = data.total; // Start with server-side total
 
             if (selectedPlatforms.length > 0) {
                 filteredData = filteredData.filter(game => {
@@ -421,15 +413,52 @@
                 filteredData = filteredData.filter(game => selectedRatings.includes(game.rating));
             }
 
+            // If we have client-side filters, get the total count
+            if (selectedPlatforms.length > 0 || selectedRatings.length > 0) {
+                totalFiltered = await getFilteredCount(search);
+            }
+
             totalPages = data.total_pages;
 
             // Update stats to show filtered count
             const lastScrape = stats.last_scrape ? new Date(stats.last_scrape).toLocaleDateString() : 'Never';
-            document.getElementById('stats').innerHTML =
-                `Total: ${stats.total.toLocaleString()} games | Showing: ${filteredData.length.toLocaleString()} results<br>Last scrape: ${lastScrape}`;
+            if (totalFiltered !== stats.total) {
+                document.getElementById('stats').innerHTML =
+                    `Total: ${stats.total.toLocaleString()} games | Filtered: ${totalFiltered.toLocaleString()} results<br>Last scrape: ${lastScrape}`;
+            } else {
+                document.getElementById('stats').innerHTML =
+                    `Total: ${stats.total.toLocaleString()} games<br>Last scrape: ${lastScrape}`;
+            }
 
             displayRatings(filteredData, filteredData.length);
             updatePagination();
+        }
+
+        async function getFilteredCount(search) {
+            // Fetch all results to count filtered items
+            const params = new URLSearchParams({
+                page: 1,
+                per_page: 10000, // Large number to get all results
+                search
+            });
+
+            const response = await fetch(`/api/ratings?${params}`);
+            const data = await response.json();
+
+            let allData = data.data;
+
+            if (selectedPlatforms.length > 0) {
+                allData = allData.filter(game => {
+                    const gamePlatforms = game.platform ? game.platform.split(',').map(p => p.trim()) : [];
+                    return selectedPlatforms.some(p => gamePlatforms.includes(p));
+                });
+            }
+
+            if (selectedRatings.length > 0) {
+                allData = allData.filter(game => selectedRatings.includes(game.rating));
+            }
+
+            return allData.length;
         }
 
         let currentSort = 'game_id';
@@ -461,6 +490,19 @@
                 return currentSortDir === 'asc' ? ' ▲' : ' ▼';
             };
 
+            const getRatingIconUrl = (rating) => {
+                const baseUrl = 'https://www.esrb.org/wp-content/uploads/2019/05/';
+                const ratingMap = {
+                    'E': 'E.svg',
+                    'E10+': 'E10plus.svg',
+                    'T': 'T.svg',
+                    'M': 'M.svg',
+                    'AO': 'AO.svg',
+                    'RP': 'RP.svg'
+                };
+                return baseUrl + (ratingMap[rating] || 'RP.svg');
+            };
+
             const table = `
                 <table>
                     <thead>
@@ -479,7 +521,7 @@
                                 <td>${r.game_id}</td>
                                 <td><strong><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.game_title)}</a></strong></td>
                                 <td><span class="platform">${escapeHtml(r.platform || '')}</span></td>
-                                <td><span class="rating-badge rating-${r.rating.replace(/[^a-zA-Z0-9]/g, '')}">${escapeHtml(r.rating)}</span></td>
+                                <td><img src="${getRatingIconUrl(r.rating)}" alt="${escapeHtml(r.rating)}" class="rating-icon" /></td>
                                 <td>${escapeHtml(r.descriptors || '')}</td>
                                 <td>
                                     ${r.summary ? `<button class="summary-btn" onclick="showSummaryByIndex(${idx})">View Summary</button>` : ''}
@@ -538,6 +580,17 @@
             const search = document.getElementById('search').value;
 
             const params = new URLSearchParams({ search });
+
+            // Add selected platforms
+            if (selectedPlatforms.length > 0) {
+                params.set('platforms', selectedPlatforms.join(','));
+            }
+
+            // Add selected ratings
+            if (selectedRatings.length > 0) {
+                params.set('ratings', selectedRatings.join(','));
+            }
+
             window.location.href = `/api/export?${params}`;
         }
 
