@@ -57,6 +57,7 @@ def get_ratings():
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 50))
     search = request.args.get('search', '')
+    search_field = request.args.get('search_field', 'title')
     platform = request.args.get('platform', '')
     rating = request.args.get('rating', '')
     sort_col = request.args.get('sort', 'game_id')
@@ -67,12 +68,16 @@ def get_ratings():
     if sort_col not in allowed_sorts:
         sort_col = 'game_id'
 
+    # Whitelist search fields
+    search_column_map = {'title': 'game_title', 'descriptors': 'descriptors', 'summary': 'summary'}
+    search_column = search_column_map.get(search_field, 'game_title')
+
     # Build query
     query = 'SELECT * FROM ratings WHERE 1=1'
     params = []
 
     if search:
-        query += ' AND game_title LIKE ?'
+        query += f' AND {search_column} LIKE ?'
         params.append(f'%{search}%')
 
     if platform:
@@ -117,15 +122,20 @@ def export_csv():
 
     # Get query parameters
     search = request.args.get('search', '')
+    search_field = request.args.get('search_field', 'title')
     platforms = request.args.get('platforms', '')  # Comma-separated list
     ratings = request.args.get('ratings', '')      # Comma-separated list
+
+    # Whitelist search fields
+    search_column_map = {'title': 'game_title', 'descriptors': 'descriptors', 'summary': 'summary'}
+    search_column = search_column_map.get(search_field, 'game_title')
 
     # Get all games, we'll filter in Python for multi-value filters
     query = 'SELECT * FROM ratings WHERE 1=1'
     params = []
 
     if search:
-        query += ' AND game_title LIKE ?'
+        query += f' AND {search_column} LIKE ?'
         params.append(f'%{search}%')
 
     query += ' ORDER BY game_id DESC'

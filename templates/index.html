@@ -268,7 +268,14 @@
         <div class="stats" id="stats">Loading statistics...</div>
 
         <div class="filters">
-            <input type="text" id="search" placeholder="Search game title...">
+            <div style="display: flex; gap: 0;">
+                <select id="searchField" style="border-radius: 4px 0 0 4px; border-right: none; min-width: 120px;">
+                    <option value="title">Title</option>
+                    <option value="descriptors">Descriptors</option>
+                    <option value="summary">Summary</option>
+                </select>
+                <input type="text" id="search" placeholder="Search game title..." style="border-radius: 0 4px 4px 0; flex: 1;">
+            </div>
             <div class="multi-select" id="platformSelect">
                 <div class="multi-select-display" onclick="toggleDropdown('platformSelect')">All Platforms</div>
                 <div class="multi-select-dropdown"></div>
@@ -386,11 +393,13 @@
 
         async function loadRatings() {
             const search = document.getElementById('search').value;
+            const searchField = document.getElementById('searchField').value;
 
             const params = new URLSearchParams({
                 page: currentPage,
                 per_page: 50,
                 search,
+                search_field: searchField,
                 sort: currentSort,
                 dir: currentSortDir
             });
@@ -436,10 +445,12 @@
 
         async function getFilteredCount(search) {
             // Fetch all results to count filtered items
+            const searchField = document.getElementById('searchField').value;
             const params = new URLSearchParams({
                 page: 1,
                 per_page: 10000, // Large number to get all results
-                search
+                search,
+                search_field: searchField
             });
 
             const response = await fetch(`/api/ratings?${params}`);
@@ -578,8 +589,9 @@
 
         function exportCSV() {
             const search = document.getElementById('search').value;
+            const searchField = document.getElementById('searchField').value;
 
-            const params = new URLSearchParams({ search });
+            const params = new URLSearchParams({ search, search_field: searchField });
 
             // Add selected platforms
             if (selectedPlatforms.length > 0) {
@@ -630,6 +642,14 @@
         document.getElementById('search').addEventListener('input', () => {
             currentPage = 1;
             loadRatings();
+        });
+
+        document.getElementById('searchField').addEventListener('change', () => {
+            const field = document.getElementById('searchField').value;
+            const placeholders = { title: 'Search game title...', descriptors: 'Search descriptors...', summary: 'Search summary...' };
+            document.getElementById('search').placeholder = placeholders[field];
+            currentPage = 1;
+            if (document.getElementById('search').value) loadRatings();
         });
 
         // Initialize
