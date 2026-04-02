@@ -607,29 +607,79 @@
         }
 
         async function fetchNewData() {
-            if (!confirm('This will fetch new game ratings data from ESRB.org. This may take several minutes. Continue?')) {
-                return;
-            }
-
             const content = document.getElementById('content');
-            content.innerHTML = '<div class="loading">Fetching new data... This may take several minutes. Please do not close this page.</div>';
+            document.getElementById('pagination').style.display = 'none';
+            content.innerHTML = `
+                <div style="padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <strong id="scrapeStatus">Fetching new data...</strong>
+                        <div>
+                            <button onclick="cancelFetch()" id="cancelBtn" style="background: #e53935;">Cancel</button>
+                            <button onclick="closeScrapeLog()" id="closeBtn" style="display: none;">Close</button>
+                        </div>
+                    </div>
+                    <div id="scrapeLog" style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 13px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;"></div>
+                </div>`;
+
+            const log = document.getElementById('scrapeLog');
 
             try {
                 const response = await fetch('/api/fetch-new-data', { method: 'POST' });
-                const result = await response.json();
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
 
-                if (result.status === 'success') {
-                    alert('Data fetch completed successfully!');
-                    loadStats();
-                    loadRatings();
-                } else {
-                    alert('Error: ' + result.message);
-                    loadRatings();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const msg = line.slice(6);
+
+                        if (msg === '[DONE]') {
+                            log.textContent += '\n✅ Scrape completed successfully!';
+                            scrapeFinished('Scrape complete');
+                            loadStats();
+                            return;
+                        }
+                        if (msg.startsWith('[ERROR]')) {
+                            log.textContent += '\n❌ ' + msg.slice(8);
+                            scrapeFinished('Scrape failed');
+                            return;
+                        }
+
+                        log.textContent += msg + '\n';
+                        log.scrollTop = log.scrollHeight;
+                    }
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
-                loadRatings();
+                log.textContent += '\n❌ Connection error: ' + error.message;
+                scrapeFinished('Scrape failed');
             }
+        }
+
+        function scrapeFinished(statusText) {
+            document.getElementById('scrapeStatus').textContent = statusText;
+            document.getElementById('cancelBtn').style.display = 'none';
+            document.getElementById('closeBtn').style.display = '';
+        }
+
+        function closeScrapeLog() {
+            loadRatings();
+        }
+
+        async function cancelFetch() {
+            try {
+                await fetch('/api/cancel-fetch', { method: 'POST' });
+                const log = document.getElementById('scrapeLog');
+                if (log) log.textContent += '\n⛔ Cancelled by user.';
+                scrapeFinished('Scrape cancelled');
+            } catch (e) {}
         }
 
         function escapeHtml(text) {

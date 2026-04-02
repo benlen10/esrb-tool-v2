@@ -1,11 +1,15 @@
 import sqlite3
 import subprocess
-from flask import Flask, render_template, request, jsonify, send_file
+import signal
+from flask import Flask, render_template, request, jsonify, send_file, Response
 import io
 import csv
 
 app = Flask(__name__)
 DB_PATH = 'esrb_ratings.db'
+
+# Track the active scraper process so it can be cancelled
+scraper_process = None
 
 def init_db():
     """Initialize the SQLite database with schema"""
@@ -213,19 +217,40 @@ def get_stats():
 
 @app.route('/api/fetch-new-data', methods=['POST'])
 def fetch_new_data():
-    """Trigger the scraper to fetch new data"""
-    try:
-        # Run scrape.py as a subprocess
-        result = subprocess.run(['python', 'scrape.py'], capture_output=True, text=True, timeout=600)
+    """Trigger the scraper and stream its output line by line"""
+    global scraper_process
 
-        if result.returncode == 0:
-            return jsonify({'status': 'success', 'message': 'Data fetch completed successfully'})
-        else:
-            return jsonify({'status': 'error', 'message': f'Scraper failed: {result.stderr}'}), 500
-    except subprocess.TimeoutExpired:
-        return jsonify({'status': 'error', 'message': 'Scraper timed out after 10 minutes'}), 500
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+    def generate():
+        global scraper_process
+        try:
+            scraper_process = subprocess.Popen(
+                ['python3', '-u', 'scrape.py'],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True
+            )
+            for line in scraper_process.stdout:
+                yield f"data: {line.rstrip()}\n\n"
+            scraper_process.wait()
+            if scraper_process.returncode == 0:
+                yield "data: [DONE]\n\n"
+            else:
+                yield f"data: [ERROR] Scraper exited with code {scraper_process.returncode}\n\n"
+        except Exception as e:
+            yield f"data: [ERROR] {str(e)}\n\n"
+        finally:
+            scraper_process = None
+
+    return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/api/cancel-fetch', methods=['POST'])
+def cancel_fetch():
+    """Cancel the running scraper process"""
+    global scraper_process
+    if scraper_process and scraper_process.poll() is None:
+        scraper_process.terminate()
+        scraper_process = None
+        return jsonify({'status': 'cancelled'})
+    return jsonify({'status': 'not_running'})
 
 if __name__ == '__main__':
     init_db()
