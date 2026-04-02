@@ -2,7 +2,7 @@
 
 A lightweight web app to browse, search, and export the ESRB video game ratings database. Built with Flask, SQLite, and vanilla JavaScript — no frameworks, no build tools, no bloat.
 
-![Main View](screenshots/main-view.png)
+![Main View](./screenshots/main-view.png)
 
 ## Features
 
@@ -23,13 +23,13 @@ A lightweight web app to browse, search, and export the ESRB video game ratings 
 
 Search by game title with instant filtering. The header shows the filtered count alongside the total.
 
-![Search Filter](screenshots/search-filter.png)
+![Search Filter](./screenshots/search-filter.png)
 
 ### Rating Summary Modal
 
 Click "View Summary" to read the full ESRB rating summary for any game.
 
-![Summary Modal](screenshots/summary-modal.png)
+![Summary Modal](./screenshots/summary-modal.png)
 
 ## Rating Distribution
 
